@@ -1,0 +1,13 @@
+{
+  "OnlyListedTextures": false,
+  "Textures": [
+    "LSnow01",
+    "LSnow02",
+    "LSnowRocks01",
+    "LSnowRocks01wGrass",
+    "LSnowCobble01",
+    "LDirtSnowPath01",
+    "LGrassSnow01",
+    "LGrassSnow01NoGrass"
+  ]
+}

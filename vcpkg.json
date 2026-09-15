@@ -11,6 +11,7 @@
       "name": "spdlog",
       "version>=": "1.16.0"
     },
+    "nlohmann-json",
     "rapidcsv",
     "directxtk"
   ],

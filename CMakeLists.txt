@@ -36,14 +36,11 @@ include(${COMMONLIB_SRC_DIR}/cmake/CommonLibSSE.cmake)
 
 add_commonlibsse_plugin(${PROJECT_NAME} AUTHOR ${AUTHOR_NAME} SOURCES ${headers} ${sources})
 
-file(READ "${CMAKE_CURRENT_BINARY_DIR}/__${PROJECT_NAME}Plugin.cpp" PLUGIN_DECLARATION)
-string(REPLACE "SKSE::StructCompatibility::Independent" "static_cast<SKSE::StructCompatibility>(SKSE::PluginVersionData::kVersionIndependentEx_NoStructUse | SKSE::PluginVersionData::kVersionIndependentEx_AddressLibraryV5)" PLUGIN_DECLARATION "${PLUGIN_DECLARATION}")
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/__${PROJECT_NAME}Plugin.cpp" "${PLUGIN_DECLARATION}")
-
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 target_precompile_headers(${PROJECT_NAME} PRIVATE include/PCH.h)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 if(DEFINED ENV{SKYRIM_MODS_FOLDER} AND IS_DIRECTORY "$ENV{SKYRIM_MODS_FOLDER}")
   copyOutputs("$ENV{SKYRIM_MODS_FOLDER}/${PRODUCT_NAME}")
+  add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/contrib/VertexRemover.json" "$ENV{SKYRIM_MODS_FOLDER}/${PRODUCT_NAME}/SKSE/Plugins/VertexRemover.json" VERBATIM)
 endif()
