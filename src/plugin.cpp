@@ -1,5 +1,8 @@
 namespace
 {
+	bool skipSolstheim = true;
+	bool keepDarkColors = false;
+	int keepDarkerThan = 8;
 	bool onlyListed = false;
 	std::vector<std::string> listedNames;
 	std::vector<const RE::TESLandTexture*> listedTextures;
@@ -14,10 +17,18 @@ namespace
 		return !onlyListed || std::ranges::contains(listedTextures, a_texture);
 	}
 
+	bool IsKeptDark(const std::int8_t (&a_color)[3])
+	{
+		return keepDarkColors && std::max({ static_cast<std::uint8_t>(a_color[0]), static_cast<std::uint8_t>(a_color[1]), static_cast<std::uint8_t>(a_color[2]) }) < keepDarkerThan;
+	}
+
 	void Recolor(RE::TESObjectLAND::LoadedLandData* a_data)
 	{
 		for (std::size_t quad = 0; quad < 4; ++quad) {
 			for (std::size_t vertex = 0; vertex < 289; ++vertex) {
+				if (IsKeptDark(a_data->colors[quad][vertex])) {
+					continue;
+				}
 				const auto gridX = (quad & 1) * 16 + vertex % 17;
 				const auto gridY = (quad >> 1) * 16 + vertex / 17;
 				int snow = 0;
@@ -58,8 +69,17 @@ namespace
 		}
 	}
 
+	bool IsInSolstheim(const RE::TESObjectLAND* a_land)
+	{
+		const auto worldspace = a_land->parentCell ? a_land->parentCell->GetRuntimeData().worldSpace : nullptr;
+		return worldspace && _stricmp(worldspace->GetFormEditorID(), "DLC2SolstheimWorld") == 0;
+	}
+
 	void RecolorLoadedData(RE::TESObjectLAND* a_land)
 	{
+		if (skipSolstheim && IsInSolstheim(a_land)) {
+			return;
+		}
 		if (a_land->loadedData && a_land->data.flags.all(RE::OBJ_LAND::Flag::kVertexColors)) {
 			Recolor(a_land->loadedData);
 		}
@@ -119,7 +139,19 @@ namespace
 	void LoadConfig()
 	{
 		const auto config = nlohmann::json::parse(std::ifstream{ "Data/SKSE/Plugins/VertexRemover.json" }, nullptr, false, true);
-		if (!config.is_object() || !config.contains("OnlyListedTextures") || !config["OnlyListedTextures"].is_boolean() || !config["OnlyListedTextures"].get<bool>()) {
+		if (!config.is_object()) {
+			return;
+		}
+		if (config.contains("SkipSolstheim") && config["SkipSolstheim"].is_boolean()) {
+			skipSolstheim = config["SkipSolstheim"].get<bool>();
+		}
+		if (config.contains("KeepDarkColors") && config["KeepDarkColors"].is_boolean()) {
+			keepDarkColors = config["KeepDarkColors"].get<bool>();
+		}
+		if (config.contains("KeepDarkerThan") && config["KeepDarkerThan"].is_number()) {
+			keepDarkerThan = static_cast<int>(std::clamp(config["KeepDarkerThan"].get<double>(), 0.0, 255.0));
+		}
+		if (!config.contains("OnlyListedTextures") || !config["OnlyListedTextures"].is_boolean() || !config["OnlyListedTextures"].get<bool>()) {
 			return;
 		}
 		onlyListed = true;

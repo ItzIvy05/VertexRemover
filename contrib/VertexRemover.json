@@ -1,4 +1,7 @@
 {
+  "SkipSolstheim": true,
+  "KeepDarkColors": false,
+  "KeepDarkerThan": 8,
   "OnlyListedTextures": false,
   "Textures": [
     "LSnow01",
