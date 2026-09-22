@@ -7,34 +7,24 @@ namespace
 	std::vector<std::string> listedNames;
 	std::vector<const RE::TESLandTexture*> listedTextures;
 
-	bool IsSnow(const RE::TESLandTexture* a_texture)
-	{
-		return a_texture && a_texture->shaderTextureIndex == 1;
-	}
-
 	bool IsListed(const RE::TESLandTexture* a_texture)
 	{
 		return !onlyListed || std::ranges::contains(listedTextures, a_texture);
-	}
-
-	bool IsKeptDark(const std::int8_t (&a_color)[3])
-	{
-		return keepDarkColors && std::max({ static_cast<std::uint8_t>(a_color[0]), static_cast<std::uint8_t>(a_color[1]), static_cast<std::uint8_t>(a_color[2]) }) < keepDarkerThan;
 	}
 
 	void Recolor(RE::TESObjectLAND::LoadedLandData* a_data)
 	{
 		for (std::size_t quad = 0; quad < 4; ++quad) {
 			for (std::size_t vertex = 0; vertex < 289; ++vertex) {
-				if (IsKeptDark(a_data->colors[quad][vertex])) {
+				auto& color = a_data->colors[quad][vertex];
+				const int brightest = std::max({ static_cast<std::uint8_t>(color[0]), static_cast<std::uint8_t>(color[1]), static_cast<std::uint8_t>(color[2]) });
+				if (brightest == 0 || (keepDarkColors && brightest < keepDarkerThan)) {
 					continue;
 				}
 				const auto gridX = (quad & 1) * 16 + vertex % 17;
 				const auto gridY = (quad >> 1) * 16 + vertex / 17;
-				int snow = 0;
-				int other = 0;
+				int layers = 0;
 				int listed = 0;
-				bool snowBase = false;
 				bool listedBase = false;
 				for (std::size_t source = 0; source < 4; ++source) {
 					const auto localX = gridX - (source & 1) * 16;
@@ -42,28 +32,23 @@ namespace
 					if (localX > 16 || localY > 16) {
 						continue;
 					}
-					snowBase = IsSnow(a_data->defQuadTextures[source]);
 					listedBase = IsListed(a_data->defQuadTextures[source]);
 					for (std::size_t layer = 0; layer < 6; ++layer) {
-						const auto texture = a_data->quadTextures[source][layer];
-						const auto textureIsSnow = IsSnow(texture);
 						const int percent = static_cast<std::uint8_t>(a_data->percents[source][localY * 17 + localX][layer]);
-						snow += textureIsSnow ? percent : 0;
-						other += textureIsSnow ? 0 : percent;
-						listed += IsListed(texture) ? percent : 0;
+						layers += percent;
+						listed += IsListed(a_data->quadTextures[source][layer]) ? percent : 0;
 					}
 				}
-				const auto remainder = std::max(0, 255 - snow - other);
+				const auto remainder = std::max(0, 255 - layers);
 				const auto coverage = listed + (listedBase ? remainder : 0);
 				if (coverage == 0) {
 					continue;
 				}
-				const auto total = snow + other + remainder;
-				const auto exponent = snow > 51 || (snowBase && other < 204) ? 0.1 : 0.5;
-				for (auto& channel : a_data->colors[quad][vertex]) {
+				const auto total = layers + remainder;
+				for (auto& channel : color) {
 					const auto original = static_cast<std::uint8_t>(channel);
-					const auto brightened = static_cast<std::uint8_t>(std::pow(original / 255.0, exponent) * 255.0);
-					channel = static_cast<std::int8_t>(original + (brightened - original) * coverage / total);
+					const auto normalized = original * 255 / brightest;
+					channel = static_cast<std::int8_t>(original + (normalized - original) * coverage / total);
 				}
 			}
 		}
